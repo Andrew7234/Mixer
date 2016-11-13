@@ -105,7 +105,7 @@
 
         var params = getHashParams();
 
-        var userID = 000;
+        var userID = "";
 
         var access_token = params.access_token,
             state = params.state,
@@ -121,9 +121,11 @@
                 headers: {
                   'Authorization': 'Bearer ' + access_token
                 },
+                async: false,
                 success: function(response) {
                   userProfilePlaceholder.innerHTML = userProfileTemplate(response);
-                  userID = response["id"];
+                  var userID = response["id"];
+                  console.log(userID + 1337);
 
                   $('#login').hide();
                   $('#loggedin').show();
@@ -135,7 +137,9 @@
                     'Authorization': 'Bearer ' + access_token
                   },
                   success: function(response) {
-                    console.log("Worked");
+                    console.log(response["items"].length);
+                    console.log(response["total"]);
+                    console.log(response);
 
 
                   }
@@ -165,10 +169,12 @@
             window.location = url;
           }, false);
 
+          /*
           if (document.getElementById('get-playlists') !== null) {
             document.getElementById('get-playlists').addEventListener('click', function() {
               
             //localStorage.removeItem(stateKey); DO WE NEED THIS?
+
             console.log("A* Search");
             if (access_token) {
               $.ajax({
@@ -177,7 +183,9 @@
                     'Authorization': 'Bearer ' + access_token
                   },
                   success: function(response) {
-                    console.log("Worked");
+                    console.log(response["items"].length);
+                    console.log(response["total"]);
+                    console.log(response);
 
 
                   }
@@ -188,7 +196,7 @@
             }
 
             }, false);
-          }
+          } */
         }
       })();
     </script>
