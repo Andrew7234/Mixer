@@ -121,7 +121,6 @@
                 headers: {
                   'Authorization': 'Bearer ' + access_token
                 },
-                async: false,
                 success: function(response) {
                   userProfilePlaceholder.innerHTML = userProfileTemplate(response);
                   var userID = response["id"];
@@ -129,21 +128,22 @@
 
                   $('#login').hide();
                   $('#loggedin').show();
+
+                  $.ajax({
+                    url: 'https://api.spotify.com/v1/users/' + userID + '/playlists',
+                    headers: {
+                      'Authorization': 'Bearer ' + access_token
+                    },
+                    success: function(response) {
+                      console.log(response["items"].length);
+                      console.log(response["total"]);
+                      console.log(response);
+
+
+                    }
+                  });
                 }
             });
-            $.ajax({
-                  url: 'https://api.spotify.com/v1/users/' + userID + '/playlists',
-                  headers: {
-                    'Authorization': 'Bearer ' + access_token
-                  },
-                  success: function(response) {
-                    console.log(response["items"].length);
-                    console.log(response["total"]);
-                    console.log(response);
-
-
-                  }
-              });
           } else {
               $('#login').show();
               $('#loggedin').hide();
