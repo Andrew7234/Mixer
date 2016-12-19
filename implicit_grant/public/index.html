@@ -24,7 +24,6 @@
       </div>
       <div id="loggedin">
         <div id="user-profile">
-          <div id="get-playlists"> <button id="get-playlists" class="btn btn-primary">Get Playlists</button> </div>
         </div>
         <div id="oauth">
         </div>
@@ -50,6 +49,9 @@
         </div>
       </div>
       <button id="get-playlists" class="btn btn-primary">Get Playlists</button> 
+      <div class="media-body">
+        <ul id="playlists"></ul>
+      </div>
     </script>
 
     <script id="oauth-template" type="text/x-handlebars-template">
@@ -135,9 +137,18 @@
                       'Authorization': 'Bearer ' + access_token
                     },
                     success: function(response) {
-                      console.log(response["items"].length);
+                      var numPlaylists = response["items"].length;
                       console.log(response["total"]);
-                      console.log(response);
+                      var i;
+                      for (i = 0; i < numPlaylists; i++) {
+                        console.log(response["items"][i]["name"])
+                      }
+                      var $ul = $('#playlists')
+                      $.each(response["items"], function(idx, item){
+                        $ul.append('<li>' + item["name"] + '</li>')
+                      })
+
+                      
 
 
                     }
