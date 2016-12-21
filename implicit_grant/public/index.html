@@ -139,13 +139,28 @@
                     success: function(response) {
                       var numPlaylists = response["items"].length;
                       console.log(response["total"]);
+                      /*
                       var i;
                       for (i = 0; i < numPlaylists; i++) {
                         console.log(response["items"][i]["name"])
-                      }
+                      }*/
                       var $ul = $('#playlists')
-                      $.each(response["items"], function(idx, item){
-                        $ul.append('<li>' + item["name"] + '</li>')
+                      $.each(response["items"], function(idx, item){ // For each playlist
+                        $ul.append('<li>' + item["name"])
+                        $.ajax({
+                          url: 'https://api.spotify.com/v1/users/' + userID + '/playlists/' + item["id"],
+                          headers: {
+                            'Authorization': 'Bearer ' + access_token
+                          },
+                          success: function(playlist_data) {
+                            $ul.append('<ul>')
+                            $.each(playlist_data["tracks"]["items"], function(idx, item){ // For each song
+                              $ul.append('<li>' + item["track"]["name"] + '</li>')
+                            })
+                            $ul.append('</ul>')
+                          }
+                        })
+                        $ul.append('</li>')
                       })
 
                       
