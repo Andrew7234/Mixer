@@ -20,6 +20,8 @@
     <div class="container">
       <div id="login">
         <h1>This is an example of the Implicit Grant flow</h1>
+        <h2>Welcome to the Mixer.</h2>
+
         <button id="login-button" class="btn btn-primary">Log in with Spotify</button>
       </div>
       <div id="loggedin">
@@ -131,6 +133,8 @@
                   $('#login').hide();
                   $('#loggedin').show();
 
+
+                  var playlistArr = [];
                   $.ajax({
                     url: 'https://api.spotify.com/v1/users/' + userID + '/playlists',
                     headers: {
@@ -138,21 +142,45 @@
                     },
                     success: function(response) {
                       var numPlaylists = response["items"].length;
+                      
                       console.log(response["total"]);
                       var i;
                       for (i = 0; i < numPlaylists; i++) {
-                        console.log(response["items"][i]["name"])
+                        console.log(response["items"][i].name)
+                        playlistArr.push(response["items"][i])
                       }
                       var $ul = $('#playlists')
                       $.each(response["items"], function(idx, item){
                         $ul.append('<li>' + item["name"] + '</li>')
                       })
 
-                      
+                  var chosenPlaylist = playlistArr[2]//hard-coded for now
+                  $.ajax({
+                    url: 'https://api.spotify.com/v1/users/' + userID +   '/playlists/' + chosenPlaylist.id+ '/tracks', 
+                    headers: {
+                      'Authorization': 'Bearer ' + access_token
+                    },
+                    success: function(response) {
+                      var numPlaylists = response["items"].length;
+                      console.log(response["total"]);
+                      console.log(numPlaylists);
+                      var i;
+                      for (i = 0; i < numPlaylists; i++) {
+                        console.log(response["items"][i]["track"]["name"])
+                      }
+
+                      console.log(chosenPlaylist.name);
+                      console.log(chosenPlaylist.id);
+
+                    }
+                  });  
 
 
                     }
-                  });
+                  }); 
+
+ 
+
                 }
             });
           } else {
