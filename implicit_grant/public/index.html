@@ -19,7 +19,7 @@
   <body>
     <div class="container">
       <div id="login">
-        <h1>This is an example of the Implicit Grant flow</h1>
+        <h1>Spotify Mixer</h1>
         <button id="login-button" class="btn btn-primary">Log in with Spotify</button>
       </div>
       <div id="loggedin">
@@ -27,6 +27,7 @@
         </div>
         <div id="oauth">
         </div>
+        <button id="add-user" class="btn btn-primary">Add User</button>
       </div>
     </div>
 
@@ -49,6 +50,7 @@
         </div>
       </div>
       <button id="get-playlists" class="btn btn-primary">Get Playlists</button> 
+      
       <div class="media-body">
         <ul id="playlists"></ul>
       </div>
@@ -123,10 +125,20 @@
                 headers: {
                   'Authorization': 'Bearer ' + access_token
                 },
-                success: function(response) {
-                  userProfilePlaceholder.innerHTML = userProfileTemplate(response);
-                  var userID = response["id"];
-                  console.log(userID + 1337);
+                success: function(userData) {
+                  userProfilePlaceholder.innerHTML = userProfileTemplate(userData);
+
+                  var userID = userData["id"];
+                  var userIDs = localStorage.getItem("spotify_user_ids");
+                  if (userIDs == undefined) {
+                    userIDs = [userData["id"]];
+                  } else {
+                    userIDs = JSON.parse(userIDs);
+                    userIDs.push(userData["id"]);
+                  }
+                  console.log(userID);
+                  localStorage.setItem("spotify_user_ids", JSON.stringify(userIDs));
+
 
                   $('#login').hide();
                   $('#loggedin').show();
@@ -136,16 +148,29 @@
                     headers: {
                       'Authorization': 'Bearer ' + access_token
                     },
-                    success: function(response) {
-                      var numPlaylists = response["items"].length;
-                      console.log(response["total"]);
+                    success: function(playlists) {
+                      var userPlaylists = {}; //Store all the songs/playlists for this user
+                      userPlaylists.numPlaylists = 0;
+                      userPlaylists.playlists = [];
+                      var numPlaylists = playlists["items"].length;
+                      console.log(playlists["total"]);
                       /*
                       var i;
                       for (i = 0; i < numPlaylists; i++) {
-                        console.log(response["items"][i]["name"])
+                        console.log(playlists["items"][i]["name"])
                       }*/
                       var $ul = $('#playlists')
-                      $.each(response["items"], function(idx, item){ // For each playlist
+                      $.each(playlists["items"], function(idx, item){ // For each playlist
+                        if (item["owner"]["id"] != userData["id"]) {
+                          numPlaylists -= 1;
+                          return true;
+                        }
+                        //userPlaylists.numPlaylists += 1;
+                        var currPlaylist = {};
+                        currPlaylist.numSongs = 0;
+                        currPlaylist.songs = [];
+                        userPlaylists.playlists.push(currPlaylist);
+                        
                         $ul.append('<li>' + item["name"])
                         $.ajax({
                           url: 'https://api.spotify.com/v1/users/' + userID + '/playlists/' + item["id"],
@@ -153,9 +178,23 @@
                             'Authorization': 'Bearer ' + access_token
                           },
                           success: function(playlist_data) {
+
                             $ul.append('<ul>')
                             $.each(playlist_data["tracks"]["items"], function(idx, item){ // For each song
+                              currPlaylist.songs.push(item["track"]["name"]); //CHANGE LATER IF YOU WANT TO STORE SPOTIFY IDS FOR SONG INSTEAD
+                              currPlaylist.numSongs += 1;
                               $ul.append('<li>' + item["track"]["name"] + '</li>')
+                              //Increment playlist counter when done with all songs
+                              if (currPlaylist.numSongs == playlist_data["tracks"]["items"].length) {
+                                userPlaylists.numPlaylists += 1;
+                              }
+                              //Store in LocalStorage when all playlists are processed
+                              if ( (userPlaylists.numPlaylists == numPlaylists) && (currPlaylist.numSongs == playlist_data["tracks"]["items"].length)) {
+                                localStorage.setItem(userData["id"], JSON.stringify(userPlaylists));
+                                console.log(JSON.parse(localStorage.getItem(userData["id"])));
+                                console.log(userPlaylists.numPlaylists);
+                                console.log(numPlaylists);
+                              }
                             })
                             $ul.append('</ul>')
                           }
@@ -163,7 +202,7 @@
                         $ul.append('</li>')
                       })
 
-                      
+                      //Originally stored in localStorage here
 
 
                     }
@@ -179,6 +218,7 @@
 
             var client_id = 'dd24a45127c24730802a8348e917b901'; // Your client id
             var redirect_uri = 'http://localhost:8888/'; // Your redirect uri
+            var show_dialog = true;
 
             var state = generateRandomString(16);
 
@@ -191,6 +231,31 @@
             url += '&scope=' + encodeURIComponent(scope);
             url += '&redirect_uri=' + encodeURIComponent(redirect_uri);
             url += '&state=' + encodeURIComponent(state);
+            url += '&show_dialog=' + encodeURIComponent(show_dialog);
+
+            window.location = url;
+          }, false);
+
+          //Can replace with class identifier, eg $(".loginClass").click( function() {});
+          document.getElementById('add-user').addEventListener('click', function() {
+
+            var client_id = 'dd24a45127c24730802a8348e917b901'; // Your client id
+            var redirect_uri = 'http://localhost:8888/'; // Your redirect uri
+            var show_dialog = true;
+            console.log("Pinged");
+
+            var state = generateRandomString(16);
+
+            localStorage.setItem(stateKey, state);
+            var scope = 'user-read-private user-read-email playlist-read-private';
+
+            var url = 'https://accounts.spotify.com/authorize';
+            url += '?response_type=token';
+            url += '&client_id=' + encodeURIComponent(client_id);
+            url += '&scope=' + encodeURIComponent(scope);
+            url += '&redirect_uri=' + encodeURIComponent(redirect_uri);
+            url += '&state=' + encodeURIComponent(state);
+            url += '&show_dialog=' + encodeURIComponent(show_dialog);
 
             window.location = url;
           }, false);
