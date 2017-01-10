@@ -29,6 +29,7 @@
         </div>
         <button id="add-user" class="btn btn-primary">Add User</button>
         <button id="consolidate" class="btn btn-primary">Consolidate</button>
+        <button id="create-playlist" class="btn btn-primary">Create Playlist</button>
       </div>
     </div>
 
@@ -100,6 +101,96 @@
           return text;
         };
 
+        /**
+         * Returns a list of the songs that all users have in common
+         */
+        function consolidate() {
+          var userIDs = localStorage.getItem("spotify_user_ids");
+            if (userIDs === undefined || JSON.parse(userIDs).length === 1) {
+              console.log("Not enough users added");
+              return;
+            }
+
+            userIDs = JSON.parse(userIDs);
+            var songs = {};
+            var smallestSet;
+            var smallestSetSize = Number.POSITIVE_INFINITY;
+
+            for (var i = 0; i < userIDs.length; i++) {
+              var currUserPlaylists = localStorage.getItem(userIDs[i]);
+              currUserPlaylists = JSON.parse(currUserPlaylists);
+              var currUserSongs = new Set();
+
+              for (var j = 0; j < currUserPlaylists["numPlaylists"]; j++) {
+                var currPlaylist = currUserPlaylists["playlists"][j];
+
+                for (var k = 0; k < currPlaylist["numSongs"]; k++) {
+                  currUserSongs.add(currPlaylist["songs"][k]);
+                }
+              }
+
+              if (currUserSongs.size < smallestSetSize) {
+                smallestSet = currUserSongs;
+                smallestSetSize = currUserSongs.size;
+              }
+
+              songs[userIDs[i]] = currUserSongs;
+
+            }
+
+            var consolidatedPlaylist = [];
+            // For now, we'll only include songs that are common among ALL users
+            //First, find the user with the fewest songs
+            outerloop:
+            for (let currSong of smallestSet) {
+              for (let currUserSongs of Object.values(songs)) {
+                if (!currUserSongs.has(currSong)) {
+                  continue outerloop;
+                }
+              }
+              consolidatedPlaylist.push(currSong);
+
+            }
+
+            console.log(consolidatedPlaylist);
+            return consolidatedPlaylist;
+        };
+
+        function loginRequest() {
+            var client_id = 'dd24a45127c24730802a8348e917b901'; // Your client id
+            var redirect_uri = 'http://localhost:8888/'; // Your redirect uri
+            var show_dialog = true;
+
+            var state = generateRandomString(16);
+
+            localStorage.setItem(stateKey, state);
+            var scope = 'user-read-private user-read-email playlist-read-private playlist-modify-public';
+
+            var url = 'https://accounts.spotify.com/authorize';
+            url += '?response_type=token';
+            url += '&client_id=' + encodeURIComponent(client_id);
+            url += '&scope=' + encodeURIComponent(scope);
+            url += '&redirect_uri=' + encodeURIComponent(redirect_uri);
+            url += '&state=' + encodeURIComponent(state);
+            url += '&show_dialog=' + encodeURIComponent(show_dialog);
+
+            window.location = url;
+        }
+
+        function addSongs(userID, pID, cpIDs, access_token) {
+          console.log(cpIDs);
+          console.log(JSON.stringify(cpIDs));
+          $.ajax({
+            url: 'https://api.spotify.com/v1/users/' + userID + '/playlists/' + pID + '/tracks',
+            headers: {
+              'Authorization': 'Bearer ' + access_token,
+              'Content-Type': 'application/json'
+            },
+            type: 'POST',
+            data: JSON.stringify({"uris": cpIDs})
+          })
+        }
+
         var userProfileSource = document.getElementById('user-profile-template').innerHTML,
             userProfileTemplate = Handlebars.compile(userProfileSource),
             userProfilePlaceholder = document.getElementById('user-profile');
@@ -129,7 +220,7 @@
                 success: function(userData) {
                   userProfilePlaceholder.innerHTML = userProfileTemplate(userData);
 
-                  var userID = userData["id"];
+                  userID = userData["id"]; //CHANGED HERE TO MAKE GLOBAL
                   var userIDs = localStorage.getItem("spotify_user_ids");
                   if (userIDs === undefined) {
                     userIDs = [userID];
@@ -178,6 +269,7 @@
                         userPlaylists.playlists.push(currPlaylist);
                         
                         $ul.append('<li>' + item["name"])
+                        //Fetch data for each playlist
                         $.ajax({
                           url: 'https://api.spotify.com/v1/users/' + userID + '/playlists/' + item["id"],
                           headers: {
@@ -187,29 +279,28 @@
 
                             $ul.append('<ul>')
                             $.each(playlist_data["tracks"]["items"], function(idx, item){ // For each song
-                              currPlaylist.songs.push(item["track"]["name"]); //CHANGE LATER IF YOU WANT TO STORE SPOTIFY IDS FOR SONG INSTEAD
+                              currPlaylist.songs.push(item["track"]["uri"]); //CHANGE LATER IF YOU WANT TO STORE SPOTIFY URIS FOR SONG INSTEAD
                               currPlaylist.numSongs += 1;
                               $ul.append('<li>' + item["track"]["name"] + '</li>')
-                              //Increment playlist counter when done with all songs
-                              if (currPlaylist.numSongs == playlist_data["tracks"]["items"].length) {
-                                userPlaylists.numPlaylists += 1;
-                              }
-                              //Store in LocalStorage when all playlists are processed
-                              if ( (userPlaylists.numPlaylists == numPlaylists) && (currPlaylist.numSongs == playlist_data["tracks"]["items"].length)) {
-                                localStorage.setItem(userData["id"], JSON.stringify(userPlaylists));
-                                console.log(JSON.parse(localStorage.getItem(userData["id"])));
-                                console.log(userPlaylists.numPlaylists);
-                                console.log(numPlaylists);
-                              }
+                              
                             })
+                            //Increment playlist counter when done with all songs
+                            userPlaylists.numPlaylists += 1;
+                            //Store in LocalStorage when all playlists are processed
+                            if (userPlaylists.numPlaylists === numPlaylists) {
+                              console.log("Storing userData in localStorage");
+                              localStorage.setItem(userData["id"], JSON.stringify(userPlaylists));
+                              console.log(JSON.parse(localStorage.getItem(userData["id"])));
+                            }
+                            
                             $ul.append('</ul>')
                           }
                         })
                         $ul.append('</li>')
                       })
 
-                      //Originally stored in localStorage here
-
+                      //Originally stored in localStorage here, but can't since theres an AJAX request above
+                      
 
                     }
                   });
@@ -222,101 +313,85 @@
 
           document.getElementById('login-button').addEventListener('click', function() {
 
-            var client_id = 'dd24a45127c24730802a8348e917b901'; // Your client id
-            var redirect_uri = 'http://localhost:8888/'; // Your redirect uri
-            var show_dialog = true;
-
-            var state = generateRandomString(16);
-
-            localStorage.setItem(stateKey, state);
-            var scope = 'user-read-private user-read-email playlist-read-private';
-
-            var url = 'https://accounts.spotify.com/authorize';
-            url += '?response_type=token';
-            url += '&client_id=' + encodeURIComponent(client_id);
-            url += '&scope=' + encodeURIComponent(scope);
-            url += '&redirect_uri=' + encodeURIComponent(redirect_uri);
-            url += '&state=' + encodeURIComponent(state);
-            url += '&show_dialog=' + encodeURIComponent(show_dialog);
-
-            window.location = url;
+            loginRequest();
           }, false);
 
           //Can replace with class identifier, eg $(".loginClass").click( function() {});
           document.getElementById('add-user').addEventListener('click', function() {
 
-            var client_id = 'dd24a45127c24730802a8348e917b901'; // Your client id
-            var redirect_uri = 'http://localhost:8888/'; // Your redirect uri
-            var show_dialog = true;
-            console.log("Pinged");
-
-            var state = generateRandomString(16);
-
-            localStorage.setItem(stateKey, state);
-            var scope = 'user-read-private user-read-email playlist-read-private';
-
-            var url = 'https://accounts.spotify.com/authorize';
-            url += '?response_type=token';
-            url += '&client_id=' + encodeURIComponent(client_id);
-            url += '&scope=' + encodeURIComponent(scope);
-            url += '&redirect_uri=' + encodeURIComponent(redirect_uri);
-            url += '&state=' + encodeURIComponent(state);
-            url += '&show_dialog=' + encodeURIComponent(show_dialog);
-
-            window.location = url;
+            loginRequest();
           }, false);
 
           document.getElementById('consolidate').addEventListener('click', function() {
-            var userIDs = localStorage.getItem("spotify_user_ids");
-            if (userIDs === undefined || JSON.parse(userIDs).length === 1) {
-              console.log("Not enough users added");
-              return;
-            }
-
-            userIDs = JSON.parse(userIDs);
-            var songs = {};
-            var smallestSet;
-            var smallestSetSize = Number.POSITIVE_INFINITY;
-
-            for (var i = 0; i < userIDs.length; i++) {
-              var currUserPlaylists = localStorage.getItem(userIDs[i]);
-              currUserPlaylists = JSON.parse(currUserPlaylists);
-              var currUserSongs = new Set();
-
-              for (var j = 0; j < currUserPlaylists["numPlaylists"]; j++) {
-                var currPlaylist = currUserPlaylists["playlists"][j];
-
-                for (var k = 0; k < currPlaylist["numSongs"]; k++) {
-                  currUserSongs.add(currPlaylist["songs"][k]);
-                }
-              }
-
-              if (currUserSongs.size < smallestSetSize) {
-                smallestSet = currUserSongs;
-                smallestSetSize = currUserSongs.size;
-              }
-
-              songs[userIDs[i]] = currUserSongs;
-
-            }
-
-            var consolidatedPlaylist = [];
-            // For now, we'll only include songs that are common among ALL users
-            //First, find the user with the fewest songs
-            outerloop:
-            for (let currSong of smallestSet) {
-              for (let currUserSongs of Object.values(songs)) {
-                if (!currUserSongs.has(currSong)) {
-                  continue outerloop;
-                }
-              }
-              consolidatedPlaylist.push(currSong);
-
-            }
-
-            console.log(consolidatedPlaylist);
+            var cp = consolidate();
           }, false);
+  
+          document.getElementById('create-playlist').addEventListener('click', function() {
+            var cpIDs = consolidate();
+            var pName = prompt("Enter name for the playlist", "Martini");
+            if (pName === null || pName === "") {
+              pName = "Martini";
+            }
+            var pID;
 
+            $.ajax({ //Check to see if a playlist with that name already exists
+              url: 'https://api.spotify.com/v1/users/' + userID + '/playlists?limit=50',
+              headers: {
+                'Authorization': 'Bearer ' + access_token
+              },
+              success: function(playlists) {
+                //Create a list of 50 most recent existing playlists
+                console.log("Playlists List worked");
+                var playlistNames = [];
+                for (var i = 0; i < playlists["items"].length; i++) {
+                  var currPlaylist = playlists["items"][i];
+
+                  if (currPlaylist["owner"]["id"] === userID) {
+                    playlistNames.push(currPlaylist["name"]);
+
+                    //If we find a playlist with the same name, we short circuit
+                    if (currPlaylist["name"] === pName) {
+                      pID = currPlaylist["id"];
+                      break;
+                    }
+                  }
+
+                }
+
+                //If playlist doesnt exist yet, create a new one
+                if (playlistNames.indexOf(pName) === -1) { 
+                  console.log("Creating a new playlist");
+                  $.ajax({
+                    url: 'https://api.spotify.com/v1/users/' + userID + '/playlists',
+                    headers: {
+                      'Authorization': 'Bearer ' + access_token,
+                      'Content-Type': 'application/json'
+                    },
+                    type: 'POST',
+                    data: JSON.stringify({name: pName}),
+                    success: function(newPlaylist) {
+                      console.log("Successfully created a new Playlist named " + pName);
+                      pID = newPlaylist["id"];
+                      //Add songs to the new playlist
+                      console.log("Adding songs to new playlist");
+                      addSongs(userID, pID, cpIDs, access_token);
+                    },
+                  });
+                } else {
+                  console.log("Reached Add Songs where playlist already exists");
+                  addSongs(userID, pID, cpIDs, access_token);
+                }
+
+                //Adds songs to the newly created playlist
+                
+
+              }
+            });
+            
+  
+
+            
+          });
           /*
           if (document.getElementById('get-playlists') !== null) {
             document.getElementById('get-playlists').addEventListener('click', function() {
