@@ -28,6 +28,7 @@
         <div id="oauth">
         </div>
         <button id="add-user" class="btn btn-primary">Add User</button>
+        <button id="consolidate" class="btn btn-primary">Consolidate</button>
       </div>
     </div>
 
@@ -130,7 +131,7 @@
 
                   var userID = userData["id"];
                   var userIDs = localStorage.getItem("spotify_user_ids");
-                  if (userIDs == undefined) {
+                  if (userIDs === undefined) {
                     userIDs = [userID];
                   } else {
                     userIDs = JSON.parse(userIDs);
@@ -263,6 +264,57 @@
             url += '&show_dialog=' + encodeURIComponent(show_dialog);
 
             window.location = url;
+          }, false);
+
+          document.getElementById('consolidate').addEventListener('click', function() {
+            var userIDs = localStorage.getItem("spotify_user_ids");
+            if (userIDs === undefined || JSON.parse(userIDs).length === 1) {
+              console.log("Not enough users added");
+              return;
+            }
+
+            userIDs = JSON.parse(userIDs);
+            var songs = {};
+            var smallestSet;
+            var smallestSetSize = Number.POSITIVE_INFINITY;
+
+            for (var i = 0; i < userIDs.length; i++) {
+              var currUserPlaylists = localStorage.getItem(userIDs[i]);
+              currUserPlaylists = JSON.parse(currUserPlaylists);
+              var currUserSongs = new Set();
+
+              for (var j = 0; j < currUserPlaylists["numPlaylists"]; j++) {
+                var currPlaylist = currUserPlaylists["playlists"][j];
+
+                for (var k = 0; k < currPlaylist["numSongs"]; k++) {
+                  currUserSongs.add(currPlaylist["songs"][k]);
+                }
+              }
+
+              if (currUserSongs.size < smallestSetSize) {
+                smallestSet = currUserSongs;
+                smallestSetSize = currUserSongs.size;
+              }
+
+              songs[userIDs[i]] = currUserSongs;
+
+            }
+
+            var consolidatedPlaylist = [];
+            // For now, we'll only include songs that are common among ALL users
+            //First, find the user with the fewest songs
+            outerloop:
+            for (let currSong of smallestSet) {
+              for (let currUserSongs of Object.values(songs)) {
+                if (!currUserSongs.has(currSong)) {
+                  continue outerloop;
+                }
+              }
+              consolidatedPlaylist.push(currSong);
+
+            }
+
+            console.log(consolidatedPlaylist);
           }, false);
 
           /*
