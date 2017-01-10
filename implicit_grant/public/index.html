@@ -131,10 +131,15 @@
                   var userID = userData["id"];
                   var userIDs = localStorage.getItem("spotify_user_ids");
                   if (userIDs == undefined) {
-                    userIDs = [userData["id"]];
+                    userIDs = [userID];
                   } else {
                     userIDs = JSON.parse(userIDs);
-                    userIDs.push(userData["id"]);
+                    if ($.inArray(userID, userIDs) === -1) {
+                      userIDs.push(userID);
+                    } else {
+                      console.log("inArray worked");
+                    }
+                    
                   }
                   console.log(userID);
                   localStorage.setItem("spotify_user_ids", JSON.stringify(userIDs));
