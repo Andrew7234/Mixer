@@ -19,7 +19,13 @@
   <body>
     <div class="container">
       <div id="login">
+<<<<<<< HEAD
         <h1>Spotify Mixer</h1>
+=======
+        <h1>This is an example of the Implicit Grant flow</h1>
+        <h2>Welcome to the Mixer.</h2>
+
+>>>>>>> 80e01b1b42663a5871f0d3bf11147556b2f44941
         <button id="login-button" class="btn btn-primary">Log in with Spotify</button>
       </div>
       <div id="loggedin">
@@ -356,6 +362,7 @@
                   $('#loggedin').show();
                   getPlaylists(userID, access_token);
 
+<<<<<<< HEAD
                   /*$.ajax({
                     url: 'https://api.spotify.com/v1/users/' + userID + '/playlists?limit=50',
                     headers: {
@@ -368,6 +375,24 @@
 
                       var numPlaylists = playlists["items"].length;
                       console.log(playlists["total"]);
+=======
+
+                  var playlistArr = [];
+                  $.ajax({
+                    url: 'https://api.spotify.com/v1/users/' + userID + '/playlists',
+                    headers: {
+                      'Authorization': 'Bearer ' + access_token
+                    },
+                    success: function(response) {
+                      var numPlaylists = response["items"].length;
+                      
+                      console.log(response["total"]);
+                      var i;
+                      for (i = 0; i < numPlaylists; i++) {
+                        console.log(response["items"][i].name)
+                        playlistArr.push(response["items"][i])
+                      }
+>>>>>>> 80e01b1b42663a5871f0d3bf11147556b2f44941
                       var $ul = $('#playlists')
                       $.each(playlists["items"], function(idx, item){ // For each playlist
                         if (item["owner"]["id"] != userID) {
@@ -411,11 +436,41 @@
                         $ul.append('</li>')
                       })
 
+<<<<<<< HEAD
                       //Originally stored in localStorage here, but can't since theres an AJAX request above
                       
 
                     }
                   }); */
+=======
+                  var chosenPlaylist = playlistArr[2]//hard-coded for now
+                  $.ajax({
+                    url: 'https://api.spotify.com/v1/users/' + userID +   '/playlists/' + chosenPlaylist.id+ '/tracks', 
+                    headers: {
+                      'Authorization': 'Bearer ' + access_token
+                    },
+                    success: function(response) {
+                      var numPlaylists = response["items"].length;
+                      console.log(response["total"]);
+                      console.log(numPlaylists);
+                      var i;
+                      for (i = 0; i < numPlaylists; i++) {
+                        console.log(response["items"][i]["track"]["name"])
+                      }
+
+                      console.log(chosenPlaylist.name);
+                      console.log(chosenPlaylist.id);
+
+                    }
+                  });  
+
+
+                    }
+                  }); 
+
+ 
+
+>>>>>>> 80e01b1b42663a5871f0d3bf11147556b2f44941
                 }
             });
           } else {
