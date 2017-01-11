@@ -30,6 +30,8 @@
         <button id="add-user" class="btn btn-primary">Add User</button>
         <button id="consolidate" class="btn btn-primary">Consolidate</button>
         <button id="create-playlist" class="btn btn-primary">Create Playlist</button>
+        <button id="get-playlists" class="btn btn-primary">Refresh Data</button> 
+
       </div>
     </div>
 
@@ -51,7 +53,6 @@
           </dl>
         </div>
       </div>
-      <button id="get-playlists" class="btn btn-primary">Get Playlists</button> 
       
       <div class="media-body">
         <ul id="playlists"></ul>
@@ -101,6 +102,12 @@
           return text;
         };
 
+        function removeDuplicates(arr) {
+          let s = new Set(arr);
+          let it = s.values();
+          return Array.from(it);
+        }
+
         /**
          * Returns a list of the songs that all users have in common
          */
@@ -149,10 +156,15 @@
                 }
               }
               consolidatedPlaylist.push(currSong);
+              console.log(Object.prototype.toString.apply(currSong));
 
             }
 
             console.log(consolidatedPlaylist);
+            console.log(Object.prototype.toString.apply(consolidatedPlaylist));
+            console.log(consolidatedPlaylist[0]);
+            console.log(Object.prototype.toString.apply(consolidatedPlaylist[0]));
+
             return consolidatedPlaylist;
         };
 
@@ -189,6 +201,7 @@
           //Can only add 100 songs per request, so we break it into chunks
           while (cpIDs.length > 0) {
             var chunk = cpIDs.splice(0,100);
+
             $.ajax({
               url: 'https://api.spotify.com/v1/users/' + userID + '/playlists/' + pID + '/tracks',
               headers: {
@@ -199,6 +212,27 @@
               data: JSON.stringify({"uris": chunk})
             })
           }
+          
+        }
+
+        function removeAllSongs(userID, pID, cpIDs, access_token) {
+          console.log("entered remove all songs");
+          console.log(cpIDs[0]);
+          while (cpIDs.length > 0) {
+            var chunk = cpIDs.splice(0, 100);
+            console.log("entered whille loop");
+
+            $.ajax({
+              url: 'https://api.spotify.com/v1/users/' + userID + '/playlists/' + pID + '/tracks',
+              headers: {
+                'Authorization': 'Bearer ' + access_token,
+                'Content-Type': 'application/json'
+              },
+              type: 'DELETE',
+              data: JSON.stringify({"uris": chunk})
+            })
+          }
+
           
         }
 
@@ -410,6 +444,7 @@
   
           document.getElementById('create-playlist').addEventListener('click', function() {
             var cpIDs = consolidate();
+            var newcpIDs = cpIDs.slice();
             var pName = prompt("Enter name for the playlist", "Martini");
             if (pName === null || pName === "") {
               pName = "Martini";
@@ -433,12 +468,16 @@
 
                     //If we find a playlist with the same name, we short circuit
                     if (currPlaylist["name"] === pName) {
+                      console.log("you already have a playlist with that name");
                       pID = currPlaylist["id"];
+                      removeAllSongs(userID, pID, cpIDs, access_token);
                       break;
                     }
                   }
 
                 }
+
+                console.log("got past this for loop");
 
                 //If playlist doesnt exist yet, create a new one
                 if (playlistNames.indexOf(pName) === -1) { 
@@ -461,7 +500,7 @@
                   });
                 } else {
                   console.log("Reached Add Songs where playlist already exists");
-                  addSongs(userID, pID, cpIDs, access_token);
+                  addSongs(userID, pID, newcpIDs, access_token);
                 }
 
                 //Adds songs to the newly created playlist
