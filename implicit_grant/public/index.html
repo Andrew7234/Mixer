@@ -156,6 +156,9 @@
             return consolidatedPlaylist;
         };
 
+        /**
+         * Makes a login request so that a user can login
+         */
         function loginRequest() {
             var client_id = 'dd24a45127c24730802a8348e917b901'; // Your client id
             var redirect_uri = 'http://localhost:8888/'; // Your redirect uri
@@ -177,18 +180,96 @@
             window.location = url;
         }
 
+        /**
+         * Given a list of spotify-ids for songs, adds those songs to the playlist given by pID
+         */
         function addSongs(userID, pID, cpIDs, access_token) {
           console.log(cpIDs);
           console.log(JSON.stringify(cpIDs));
+          //Can only add 100 songs per request, so we break it into chunks
+          while (cpIDs.length > 0) {
+            var chunk = cpIDs.splice(0,100);
+            $.ajax({
+              url: 'https://api.spotify.com/v1/users/' + userID + '/playlists/' + pID + '/tracks',
+              headers: {
+                'Authorization': 'Bearer ' + access_token,
+                'Content-Type': 'application/json'
+              },
+              type: 'POST',
+              data: JSON.stringify({"uris": chunk})
+            })
+          }
+          
+        }
+
+        /**
+         * Get the playlist data for a specific user, and store it into localStorage
+         */
+        function getPlaylists(userID, access_token) {
           $.ajax({
-            url: 'https://api.spotify.com/v1/users/' + userID + '/playlists/' + pID + '/tracks',
+            url: 'https://api.spotify.com/v1/users/' + userID + '/playlists?limit=50',
             headers: {
-              'Authorization': 'Bearer ' + access_token,
-              'Content-Type': 'application/json'
+              'Authorization': 'Bearer ' + access_token
             },
-            type: 'POST',
-            data: JSON.stringify({"uris": cpIDs})
-          })
+            success: function(playlists) {
+              var userPlaylists = {}; //Store all the songs/playlists for this user
+              userPlaylists.numPlaylists = 0;
+              userPlaylists.playlists = [];
+              var numPlaylists = playlists["items"].length;
+              console.log(playlists["total"]);
+              /*
+              var i;
+              for (i = 0; i < numPlaylists; i++) {
+                console.log(playlists["items"][i]["name"])
+              }*/
+              var $ul = $('#playlists')
+              $.each(playlists["items"], function(idx, item){ // For each playlist
+                if (item["owner"]["id"] != userID) {
+                  numPlaylists -= 1;
+                  return true;
+                }
+                //userPlaylists.numPlaylists += 1;
+                var currPlaylist = {};
+                currPlaylist.numSongs = 0;
+                currPlaylist.songs = [];
+                userPlaylists.playlists.push(currPlaylist);
+                
+                $ul.append('<li>' + item["name"])
+                //Fetch data for each playlist
+                $.ajax({
+                  url: 'https://api.spotify.com/v1/users/' + userID + '/playlists/' + item["id"],
+                  headers: {
+                    'Authorization': 'Bearer ' + access_token
+                  },
+                  success: function(playlist_data) {
+
+                    $ul.append('<ul>')
+                    $.each(playlist_data["tracks"]["items"], function(idx, item){ // For each song
+                      currPlaylist.songs.push(item["track"]["uri"]); //CHANGE LATER IF YOU WANT TO STORE SPOTIFY URIS FOR SONG INSTEAD
+                      currPlaylist.numSongs += 1;
+                      $ul.append('<li>' + item["track"]["name"] + '</li>')
+                      
+                    })
+                    //Increment playlist counter when done with all songs
+                    userPlaylists.numPlaylists += 1;
+                    //Store in LocalStorage when all playlists are processed
+                    if (userPlaylists.numPlaylists === numPlaylists) {
+                      console.log("Storing userData in localStorage");
+                      localStorage.setItem(userID, JSON.stringify(userPlaylists));
+                      console.log(JSON.parse(localStorage.getItem(userID)));
+                    }
+                    
+                    $ul.append('</ul>')
+                  }
+                })
+                $ul.append('</li>')
+              })
+
+              //Originally stored in localStorage here, but can't since theres an AJAX request above
+              
+
+            }
+          });
         }
 
         var userProfileSource = document.getElementById('user-profile-template').innerHTML,
@@ -239,9 +320,10 @@
 
                   $('#login').hide();
                   $('#loggedin').show();
+                  getPlaylists(userID, access_token);
 
-                  $.ajax({
-                    url: 'https://api.spotify.com/v1/users/' + userID + '/playlists',
+                  /*$.ajax({
+                    url: 'https://api.spotify.com/v1/users/' + userID + '/playlists?limit=50',
                     headers: {
                       'Authorization': 'Bearer ' + access_token
                     },
@@ -249,16 +331,12 @@
                       var userPlaylists = {}; //Store all the songs/playlists for this user
                       userPlaylists.numPlaylists = 0;
                       userPlaylists.playlists = [];
+
                       var numPlaylists = playlists["items"].length;
                       console.log(playlists["total"]);
-                      /*
-                      var i;
-                      for (i = 0; i < numPlaylists; i++) {
-                        console.log(playlists["items"][i]["name"])
-                      }*/
                       var $ul = $('#playlists')
                       $.each(playlists["items"], function(idx, item){ // For each playlist
-                        if (item["owner"]["id"] != userData["id"]) {
+                        if (item["owner"]["id"] != userID) {
                           numPlaylists -= 1;
                           return true;
                         }
@@ -289,8 +367,8 @@
                             //Store in LocalStorage when all playlists are processed
                             if (userPlaylists.numPlaylists === numPlaylists) {
                               console.log("Storing userData in localStorage");
-                              localStorage.setItem(userData["id"], JSON.stringify(userPlaylists));
-                              console.log(JSON.parse(localStorage.getItem(userData["id"])));
+                              localStorage.setItem(userID, JSON.stringify(userPlaylists));
+                              console.log(JSON.parse(localStorage.getItem(userID)));
                             }
                             
                             $ul.append('</ul>')
@@ -303,7 +381,7 @@
                       
 
                     }
-                  });
+                  }); */
                 }
             });
           } else {
@@ -325,6 +403,10 @@
           document.getElementById('consolidate').addEventListener('click', function() {
             var cp = consolidate();
           }, false);
+
+          document.getElementById('get-playlists').addEventListener('click', function() {
+            getPlaylists(userID, access_token);
+          });
   
           document.getElementById('create-playlist').addEventListener('click', function() {
             var cpIDs = consolidate();
@@ -387,39 +469,8 @@
 
               }
             });
-            
-  
 
-            
           });
-          /*
-          if (document.getElementById('get-playlists') !== null) {
-            document.getElementById('get-playlists').addEventListener('click', function() {
-              
-            //localStorage.removeItem(stateKey); DO WE NEED THIS?
-
-            console.log("A* Search");
-            if (access_token) {
-              $.ajax({
-                  url: 'https://api.spotify.com/v1/users/' + userID + '/playlists',
-                  headers: {
-                    'Authorization': 'Bearer ' + access_token
-                  },
-                  success: function(response) {
-                    console.log(response["items"].length);
-                    console.log(response["total"]);
-                    console.log(response);
-
-
-                  }
-              });
-            } else {
-                $('#login').show();
-                $('#loggedin').hide();
-            }
-
-            }, false);
-          } */
         }
       })();
     </script>
